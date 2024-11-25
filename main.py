@@ -13,7 +13,6 @@ def crear_usuario():
     #RETORNAMOS LA CLAVE COMO "api_key"
     return Groq(api_key=clave_secreta)
 
-#DEVUELVE LA RESPUESTA DEL CHATBOT PROCESADA POR EL MODELO ELEGIDO
 def configurar_modelo(cliente, modelo, mensaje_de_entrada):
     return cliente.chat.completions.create(
         model = modelo,
@@ -21,11 +20,19 @@ def configurar_modelo(cliente, modelo, mensaje_de_entrada):
         stream = True
     )
 
+def generar_respuesta(chat_completo):
+    respuesta_completa = ""
+    for frase in chat_completo:
+        if frase.choices[0].delta.content:
+            respuesta_completa += frase.choices[0].delta.content
+            yield frase.choices[0].delta.content
+    return respuesta_completa
+
 def configurar_pagina():
     #LA PESTAÑA
     st.set_page_config("Mi chat IA")
     #TITULO DE LA PAGINA
-    st.title("Mi chat IA")
+    st.title("Sergio")
     #SIDEBAR
     st.sidebar.title("Panel de Modelos")
     #SELECTOR DE MODELOS
@@ -33,7 +40,6 @@ def configurar_pagina():
     #DEVUELVO EL VALOR DE LO SELECCIONADO
     return m
 
-#INICIALIZAR ESTADO SI EL ESTADO NO EXISTE
 def inicializar_estado():
     if "mensajes" not in st.session_state:
         st.session_state.mensajes = []
@@ -47,24 +53,35 @@ def mostrar_historial():
                         st.markdown(mensaje["content"])
 
 def area_chat():
-        contenedorDelChat = st.container(height=400,border=True)
+        contenedorDelChat = st.container(height=600,border=True)
         # Abrimos el contenedor del chat y mostramos el historial.
         with contenedorDelChat:
                 mostrar_historial()
 
-#INICIALIZAMOS LA PAGINA
-modelo_en_uso = configurar_pagina()
-#INICIALIZAMOS EL CLIENTE USUARIO CON LA API KEY
-cliente_usuario = crear_usuario()
-#INICIALIZAMOS EL ESTADO "MENSAJES"
-inicializar_estado()
-#INICIALIZAMOS EL AREA DEL CHAT
-area_chat()
-#EL USUARIO TIENE QUE ESCRIBIR ALGO
-mensaje = st.chat_input()
-#SI ESCRIBE ALGO, SE INICIALIZA EL MODELO
-if mensaje:
-    actualizar_historial("user", mensaje, "😎")
-    chat_completo = configurar_modelo(cliente_usuario, modelo_en_uso, mensaje)
-    actualizar_historial("assistant", chat_completo,"🤖")
-    st.rerun()
+def main():
+    #INICIALIZAMOS LA PAGINA
+    modelo_en_uso = configurar_pagina()
+    #INICIALIZAMOS EL CLIENTE USUARIO CON LA API KEY
+    cliente_usuario = crear_usuario()
+    #INICIALIZAMOS EL ESTADO "MENSAJES"
+    inicializar_estado()
+    #INICIALIZAMOS EL AREA DEL CHAT
+    area_chat()
+    #EL USUARIO TIENE QUE ESCRIBIR ALGO
+    mensaje = st.chat_input()
+    #SI ESCRIBE ALGO, SE INICIALIZA EL MODELO
+    
+    chat_completo = None
+
+    if mensaje:
+        actualizar_historial("user", mensaje, "😎")
+        chat_completo = configurar_modelo(cliente_usuario, modelo_en_uso, mensaje)
+    
+    if chat_completo:
+        with st.chat_message("assistant"):
+            respuesta_completa = st.write_stream(generar_respuesta(chat_completo))
+        actualizar_historial("assistant", respuesta_completa,"🤖")
+        st.rerun()
+
+if __name__ == "__main__":
+    main()
